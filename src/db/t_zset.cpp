@@ -553,51 +553,38 @@ static int get_zsetvalue(const SSDBImpl *ssdb, const TMH &metainfo, const Bytes 
 	return 1;
 }
 
-int SSDBImpl::zclear(const Bytes &name, char log_type, bool delttl){
-	if (releasehandler->push_clear_queue(name, log_type, BinlogCommand::ZCLEAR, delttl) == 1){
-		incrNsRefCount(DataType::ZSIZE, name, -1);
+int SSDBImpl::zclear(const Bytes &name, char log_type){
+	TMH metainfo = {0};
+	int ret = VerifyStructState(&metainfo, name, DataType::ZSIZE);
+	if (ret <= 0 ){
+		return ret;
+	}
+
+	Transaction trans(binlogs);
+	releasehandler->push_clear_queue(metainfo, name);
+	calculateSlotRefer(Slots::encode_slot_id(name),  -1);
+	incrNsRefCount(DataType::ZSIZE, name, -1);
+	std::string metalkey = EncodeMetaKey(name);
+	binlogs->add_log(log_type, BinlogCommand::ZCLEAR, metalkey);
+	leveldb::Status s = binlogs->commit();
+	if (!s.ok()) {
+		return -1;
 	}
 	return 1;
 }
 
-int SSDBImpl::zset_ttl(const Bytes &name, const Bytes &key, const Bytes &score, char log_type, bool lock){
-
+int SSDBImpl::zset_ttl(const Bytes &name, const Bytes &key, const Bytes &score, char log_type){
 	TMH metainfo = {0};
-
 	int ret = VerifyStructState(&metainfo, name, DataType::ZSIZE);
 	if (ret < 0 ) {
 		return ret;
 	}
-	if (lock) {
-		Transaction trans(binlogs);
-		TMH pTagInfo = {0};
-		std::string val;
-		loadobjectbyname(&pTagInfo, key, 0, false, &val);
 
-		pTagInfo.expire = score.Int64();
-		binlogs->Put(EncodeMetaKey(key), EncodeMetaVal(pTagInfo, val));
-		expiration->set_fastkey(key, pTagInfo.expire);
-		//需要进行从服务器队列激活
-		ret = zset_one(this, metainfo, name, key, score, log_type);
-
-		if (ret > 0) {
-			if (incr_zsize(this, metainfo, name, ret) == -1) {
-				return -1;
-			}
-		}
-		leveldb::Status s = binlogs->commit();
-		if (!s.ok()) {
+	//需要进行从服务器队列激活
+	ret = zset_one(this, metainfo, name, key, score, log_type);
+	if (ret > 0) {
+		if (incr_zsize(this, metainfo, name, ret) == -1) {
 			return -1;
-		}
-	} else{
-
-		//需要进行从服务器队列激活
-		ret = zset_one(this, metainfo, name, key, score, log_type);
-
-		if (ret > 0) {
-			if (incr_zsize(this, metainfo, name, ret) == -1) {
-				return -1;
-			}
 		}
 	}
 

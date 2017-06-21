@@ -46,7 +46,6 @@ public:
 
 	RubbishRelease(SSDB *ssdb);
 	~RubbishRelease();
-	int push_clear_queue(const Bytes &key, const char log_type, const char log_cmd, bool clearttl); 
 	int push_clear_queue(TMH &metainfo, const Bytes &name);
 	std::string listName() { return list_name; }
 	void activeQueue(int64_t version){

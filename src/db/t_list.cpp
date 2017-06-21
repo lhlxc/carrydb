@@ -379,9 +379,22 @@ int SSDBImpl::lslice(const Bytes &name, int64_t begin, int64_t end,	std::vector<
 	return 0;
 }
 
-int SSDBImpl::lclear(const Bytes &name, char log_type, bool delttl){
-	if (releasehandler->push_clear_queue(name, log_type, BinlogCommand::LCLEAR, delttl) == 1){
-		incrNsRefCount(DataType::LSIZE, name, -1);
+int SSDBImpl::lclear(const Bytes &name, char log_type){
+	TMH metainfo = {0};
+	int ret = VerifyStructState(&metainfo, name, DataType::LSIZE);
+	if (ret <= 0 ){
+		return ret;
+	}
+
+	Transaction trans(binlogs);
+	releasehandler->push_clear_queue(metainfo, name);
+	calculateSlotRefer(Slots::encode_slot_id(name),  -1);
+	incrNsRefCount(DataType::LSIZE, name, -1);
+	std::string metalkey = EncodeMetaKey(name);
+	binlogs->add_log(log_type, BinlogCommand::LCLEAR, metalkey);
+	leveldb::Status s = binlogs->commit();
+	if (!s.ok()) {
+		return -1;
 	}
 	return 1;
 }

@@ -329,9 +329,9 @@ int proc_slotsrestore(NetworkServer *net, Link *link, const Request &req, Respon
 			uint64_t zsetkscnt = req[reqindex++].Uint64();
 			for(uint64_t j = 0; j < zsetkscnt; j++,reqindex += 2){
 				if (strcasecmp(retrieveFlag, "retrievekey") == 0){
-					setret = serv->ssdb->zset_ttl(Bytes(zsetname), req[reqindex], req[reqindex+1], BinlogType::MIRROR, true);
+					setret = serv->ssdb->expire(req[reqindex], req[reqindex+1].Int64(), false, BinlogType::MIRROR);
 				}else{
-					setret = serv->ssdb->zset_ttl(Bytes(zsetname), req[reqindex], req[reqindex+1], log_type, true);					
+					setret = serv->ssdb->expire(req[reqindex], req[reqindex+1].Int64(), false, log_type);					
 				}
 				if (setret == -1){//此处记录失败
 					ttlfailed++;

@@ -73,16 +73,16 @@ public:
 	virtual int raw_get(char cmdtype, const Bytes &key, std::string *val);
 
 	/* global */
-	virtual int del(const Bytes &key, char log_type=BinlogType::SYNC, bool delttl = true);
+	virtual int del(const Bytes &key, char log_type=BinlogType::SYNC);
 	virtual int64_t ttl(const Bytes &name);
-	virtual int expire(const Bytes &name, int64_t ttl);
+	virtual int expire(const Bytes &name, int64_t ttl, bool expire = true, char log_type=BinlogType::SYNC);
 	virtual int persist(const Bytes &name);
 	virtual int exists(const Bytes &key, std::string *type);
 	/* key value */
 
 	virtual int set(const Bytes &key, const Bytes &val, char log_type=BinlogType::SYNC);
 	virtual int setnx(const Bytes &key, const Bytes &val, char log_type=BinlogType::SYNC);
-	virtual int clear(const Bytes &key, char log_type=BinlogType::SYNC, bool lock_clear = true);
+	virtual int clear(const Bytes &key, char log_type=BinlogType::SYNC);
 	// -1: error, 1: ok, 0: value is not an integer or out of range
 	virtual int incr(const Bytes &key, int64_t by, int64_t *new_val, char log_type=BinlogType::SYNC);
 
@@ -109,7 +109,7 @@ public:
 	//int multi_hdel(const Bytes &name, const std::vector<Bytes> &keys, int offset=0, char log_type=BinlogType::SYNC);
 	virtual int hsetnx(const Bytes &name, const Bytes &key, const Bytes &val, char log_type=BinlogType::SYNC);
 	virtual int64_t hsize(const Bytes &name);
-	virtual int hclear(const Bytes &name, char log_type=BinlogType::SYNC, bool delttl = true);
+	virtual int hclear(const Bytes &name, char log_type=BinlogType::SYNC);
 	virtual int hget(const Bytes &name, const Bytes &key, std::string *val);
 	virtual int hgetv(const Bytes &name, const Bytes &key, std::string *val, int64_t *version);
 	virtual int hgetall(const Bytes &name, std::vector<std::string> *resp);
@@ -126,7 +126,7 @@ public:
 
 	virtual int zset(const Bytes &name, const Bytes &key, const Bytes &score, char log_type=BinlogType::SYNC);
 	virtual int zdel(const Bytes &name, const Bytes &key, char log_type=BinlogType::SYNC);
-	virtual int zclear(const Bytes &name, char log_type=BinlogType::SYNC, bool delttl = true);
+	virtual int zclear(const Bytes &name, char log_type=BinlogType::SYNC);
 	// -1: error, 1: ok, 0: value is not an integer or out of range
 	virtual int zincr(const Bytes &name, const Bytes &key, int64_t by, int64_t *new_val, char log_type=BinlogType::SYNC);
 	//int multi_zset(const Bytes &name, const std::vector<Bytes> &kvs, int offset=0, char log_type=BinlogType::SYNC);
@@ -167,7 +167,7 @@ public:
 	virtual int litems(Iterator **it, const Bytes &name, const Bytes &seq_s, const Bytes &seq_e, uint64_t limit);
 	// @return 0: empty queue, 1: item peeked, -1: error
 	virtual int lfront(const Bytes &name, std::string *item);
-	virtual int lclear(const Bytes &name, char log_type=BinlogType::SYNC, bool delttl = true);
+	virtual int lclear(const Bytes &name, char log_type=BinlogType::SYNC);
 	// @return 0: empty queue, 1: item peeked, -1: error
 	virtual int lback(const Bytes &name, std::string *item);
 	// @return -1: error, other: the new length of the queue
@@ -191,7 +191,7 @@ public:
 	//ttl
 	virtual int zdel_ttl(const Bytes &name, const Bytes &key, char log_type = BinlogType::NONE);
 	virtual int zset_ttl(const Bytes &name, const Bytes &key, const Bytes &score, 
-				char log_type = BinlogType::SYNC, bool lock = false);	
+				char log_type = BinlogType::SYNC);	
 	virtual int sync_zset_ttl(const Bytes &name, const Bytes &key, const Bytes &score, 
 					  const char *mstIp, int mstPort, char log_type=BinlogType::SYNC);
 

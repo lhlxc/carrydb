@@ -19,6 +19,7 @@ found in the LICENSE file.
 #include "t_zset.h"
 #include "t_list.h"
 #include "t_table.h"
+#include "../cluster_migrate.h"
 
 SSDBImpl::SSDBImpl() {
     ldb = NULL;
@@ -334,42 +335,31 @@ int SSDBImpl::VerifyStructState(TMH *th, const Bytes &name, const char datatype,
     return 1;
 }
 
-int SSDBImpl::expire(const Bytes &name, int64_t ttl) {
+int SSDBImpl::expire(const Bytes &name, int64_t ttl, bool expire, char log_type) {
     Transaction trans(binlogs);
 
     TMH th = {0};
-    std::string metalval, val;
-    std::string metalkey = EncodeMetaKey(name);
-    leveldb::Status s = ldb->Get(leveldb::ReadOptions(), metalkey, &metalval);
-    if (s.IsNotFound()) {
-        return 0;
-    }
-
-    if (!s.ok()) {
-        log_error("get object error: %s", s.ToString().c_str());
-        return -1;
-    }
-    memcpy(&th, metalval.c_str(), sizeof(TMH));
+    std::string val;
+    int ret = loadobjectbyname(&th, name, 0, expire, &val);
+    if (ret <= 0) { //等于0代表未找到 -1代表出错，直接返回
+        return ret;
+    } else if (ret & ObjectErr::object_expire) {
+		return 0;
+	}
 
     log_debug("set %s expire ttl: %u", name.data(), ttl);
-    if (th.expire != 0 && th.expire < time_ms()){
-        return 0;
-    }
     th.expire = ttl;
-    DecodeDataValue(DataType::METAL, metalval, &val);
     this->binlogs->Put(EncodeMetaKey(name), EncodeMetaVal(th, val));
 
-    int ret = this->expiration->set_ttl(name, ttl, BinlogType::SYNC);
-
+    ret = this->expiration->set_ttl(name, ttl, log_type);
     if (ret < 0){
         return -1;
     }
 
-    s = binlogs->commit();
+    leveldb::Status s = binlogs->commit();
     if(!s.ok()) {
         return -1;
     }
-
     return 1;
 }
 
@@ -422,7 +412,7 @@ int64_t SSDBImpl::ttl(const Bytes &name) {
     return expire;
 }
 
-int SSDBImpl::del(const Bytes &key, char log_type, bool del_ttl) {
+int SSDBImpl::del(const Bytes &key, char log_type) {
     TMH metainfo = {0};
     /* loadobjectbyname return 0(未找到对象),1<<2(对象类型不匹配)
      1<<1(对象过期) -1(获取失败)
@@ -439,16 +429,16 @@ int SSDBImpl::del(const Bytes &key, char log_type, bool del_ttl) {
         }
         switch (metainfo.datatype) {
         case DataType::KSIZE://独立执行delkv命令，需要写入binlog
-            this->clear(key, log_type, del_ttl);
+            this->clear(key, log_type);
             break;
         case DataType::HSIZE:
-            this->hclear(key, log_type, del_ttl);
+            this->hclear(key, log_type);
             break;
         case DataType::LSIZE:
-            this->lclear(key, log_type, del_ttl);
+            this->lclear(key, log_type);
             break;
         case DataType::ZSIZE:
-            this->zclear(key, log_type, del_ttl);
+            this->zclear(key, log_type);
             break;
         default:
             return -1;

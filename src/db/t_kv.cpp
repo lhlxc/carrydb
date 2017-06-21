@@ -270,31 +270,24 @@ int SSDBImpl::getbit(const Bytes &key, int bitoffset){
 	return val[len] & (1 << bit);
 }
 
-int SSDBImpl::clear(const Bytes &key, char log_type, bool ttl_clear) {
+int SSDBImpl::clear(const Bytes &key, char log_type) {
 	TMH metainfo = {0};
 	int ret = this->loadobjectbyname(&metainfo, key, 0, false);
 	if (ret <= 0) {
 		return 0;
 	}
-	if (ttl_clear) {
-		Transaction trans(binlogs);
 
-		::incrSlotsRefCount(this, key, metainfo, -1, ttl_clear);
-		incrNsRefCount(DataType::KSIZE, key, -1);
-		std::string datakey = encode_slotskvData_key(key);
-		binlogs->Delete(datakey);
-		binlogs->add_log(log_type, BinlogCommand::KDEL, datakey);
-		leveldb::Status s = binlogs->commit();
-		if (!s.ok()) {
-			log_error("delkv commit error: %s", s.ToString().c_str());
-			return -1;
-		}
-	}else{
-		::incrSlotsRefCount(this, key, metainfo, -1, ttl_clear);
-		incrNsRefCount(DataType::KSIZE, key, -1);
-		std::string datakey = encode_slotskvData_key(key);
-		binlogs->Delete(datakey);
-		binlogs->add_log(log_type, BinlogCommand::KDEL, datakey);
+	Transaction trans(binlogs);
+    calculateSlotRefer(Slots::encode_slot_id(key), -1);
+	incrNsRefCount(DataType::KSIZE, key, -1);
+	std::string datakey = encode_slotskvData_key(key);
+	binlogs->Delete(datakey);
+	expiration->del_ttl(key);
+	binlogs->add_log(log_type, BinlogCommand::KDEL, datakey);
+	leveldb::Status s = binlogs->commit();
+	if (!s.ok()) {
+		log_error("delkv commit error: %s", s.ToString().c_str());
+		return -1;
 	}
 	return 1;
 }

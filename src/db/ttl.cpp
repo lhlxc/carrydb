@@ -63,10 +63,10 @@ int ExpirationHandler::set_ttl(const Bytes &key, int64_t expired, char log_type)
 		return del_ttl(key, log_type);
 	}
 
+	Locking l(&this->mutex);
 	if(expired < first_timeout){
 		first_timeout = expired;
 	}
-	Locking l(&this->mutex);
 	std::string s_key = key.String();
 	if (!fast_keys.empty() && expired <= fast_keys.max_score()) {
 		fast_keys.add(s_key, expired);
@@ -131,6 +131,7 @@ void ExpirationHandler::load_expiration_keys_from_db(int num) {
 	int ret = ssdb->zscan(&it, this->list_name, "", "", "", num);
 	int n = 0;
 	if (ret > 0) {
+		Locking l(&this->mutex);
 		while (it->next()) {
 			n ++;
 			const std::string &key = it->key();
@@ -152,31 +153,24 @@ void ExpirationHandler::expire_loop(){
 	}
 	
 	if(this->fast_keys.empty()){
-		Locking l(&this->mutex);
 		this->load_expiration_keys_from_db(BATCH_SIZE);
 		if (this->fast_keys.empty()) {
+			Locking l(&this->mutex);
 			this->first_timeout = INT64_MAX;
 			return;
 		}
 	}
 
-	Transaction trans(ssdb->getBinlog());
-
 	int64_t score;
 	std::string key;
 	if (this->fast_keys.front(&key, &score)) {
-		this->first_timeout = score;
-
-		if (score <= time_ms()) {
+		{
 			Locking l(&this->mutex);
+			this->first_timeout = score;
+		}
+		if (score <= time_ms()) {
 			log_debug("expired %s", key.c_str());
-			this->ssdb->zdel_ttl(this->list_name, key);
-			ssdb->del(key, BinlogType::NONE, false);
-			fast_keys.pop_front();
-			leveldb::Status s = ssdb->getBinlog()->commit();
-			if (!s.ok()) {
-				log_error("delkv commit error: %s", s.ToString().c_str());
-			}
+			ssdb->del(key, BinlogType::NONE);
 		}
 	}
 }

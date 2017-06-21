@@ -67,55 +67,6 @@ int RubbishRelease::push_clear_queue(TMH &metainfo, const Bytes &name){
 	return 1;
 }
 
-int RubbishRelease::push_clear_queue(const Bytes &name, const char log_type, 
-									const char cmd_type, bool clearttl){
-	Transaction trans(ssdb->getBinlog());
-
-	//找出name的meta信息
-	TMH metainfo = {0};
-	//ignore ttl,del_ttl will called this function
-	if (ssdb->loadobjectbyname(&metainfo, name, 0, false) <= 0){
-		return 0;
-	}
-
-	std::string s_ver = str(metainfo.version);
-	std::string s_key = encode_release_key(metainfo.datatype, name);
-
-	//尝试将那么name加入垃圾收集队列中
-	int ret = this->ssdb->hset_rubbish_queue(this->list_name, s_key, s_ver);
-	//log_debug("push_clear_queue key:%s, hset_rubbish_queue ret:%d", name.data(), ret);
-	if(ret < 0){
-		return -1;
-	}
-
-	//成功就删除meta信息
-	std::string metalkey = EncodeMetaKey(name);
-	ssdb->getBinlog()->Delete(metalkey);
-	if (clearttl){
-		static_cast<SSDBImpl *>(ssdb)->expiration->del_ttl(name);
-	}
-	//是否发送同步信息,函数外配置
-	ssdb->calculateSlotRefer(Slots::encode_slot_id(name),  -1);
-	ssdb->getBinlog()->add_log(log_type, cmd_type, metalkey);
-	leveldb::Status s = ssdb->getBinlog()->commit();
-	if(!s.ok()){
-		return 0;
-	}else if(!s.ok()){
-		return -1;
-	}
-	if(metainfo.version < queue_first_version){
-		queue_first_version = metainfo.version;
-	}
-
-	// //不为空才进入,否则还会操作一次,在load_expiration_keys_from_db中
-	// if(!fast_queues.empty() && fast_queues.size() < BATCH_SIZE){
-	// 	//因为是队列.不需要pop最后一个判断,后进入的肯定版本高
-	// 	fast_queues.add(s_key, metainfo.version);
-	// }
-
-	return 1;
-}
-
 void RubbishRelease::load_expiration_keys_from_db(int num){
 	Iterator *it = nullptr;
 	int ret = ssdb->hscan(&it, this->list_name, "", "\xff", num);
