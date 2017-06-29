@@ -7,7 +7,9 @@ OBJS = ssdb_impl.o iterator.o options.o \
 LIBS = ../util/libutil.a
 
 
-all: ssdb.h ${OBJS}
+all: libdb.a 
+
+libdb.a: ${OBJS}
 	ar -cru ./libdb.a ${OBJS}
 
 ssdb_impl.o: ssdb.h ssdb_impl.h ssdb_impl.cpp

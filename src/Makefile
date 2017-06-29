@@ -7,8 +7,11 @@ OBJS = proc_kv.o proc_hash.o proc_zset.o proc_list.o \
 LIBS = ./db/libdb.a ./util/libutil.a ./net/libnet.a
 EXES = ../carrydb-server
 
-all: ${OBJS} carrydb-server.o
+all: ${EXES} 
+
+${EXES}: ${OBJS} ${LIBS} carrydb-server.o client/SSDB_impl.o 
 	${CXX} -o ../carrydb-server carrydb-server.o ${OBJS} ${LIBS} ${CLIBS} client/SSDB_impl.o
+
 
 cluster_migrate.o: cluster_migrate.h cluster_migrate.cpp
 	${CXX} ${CFLAGS} -c cluster_migrate.cpp

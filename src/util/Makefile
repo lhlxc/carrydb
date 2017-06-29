@@ -3,7 +3,9 @@ include ../../build_config.mk
 OBJS = log.o config.o bytes.o sorted_set.o app.o crc32.o slots.o dict.o bson_tool.o cmdinfo.o
 EXES = 
 
-all: ${OBJS}
+all: libutil.a 
+
+libutil.a: ${OBJS}
 	ar -cru ./libutil.a ${OBJS}
 
 app.o: app.h app.cpp

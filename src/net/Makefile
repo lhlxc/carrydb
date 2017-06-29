@@ -4,7 +4,9 @@ OBJS = server.o resp.o proc.o worker.o fde.o link.o ae.o
 UTIL_OBJS = ../util/log.o ../util/config.o ../util/bytes.o
 EXES = test
 
-all: ${OBJS}
+all: libnet.a 
+
+libnet.a: ${OBJS}
 	ar -cru ./libnet.a ${OBJS}
 
 fde.o: fde.h fde.cpp fde_select.cpp fde_epoll.cpp

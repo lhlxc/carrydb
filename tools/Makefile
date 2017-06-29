@@ -2,13 +2,19 @@ include ../build_config.mk
 
 OBJS += ../src/net/link.o ../src/net/fde.o ../src/util/log.o ../src/util/bytes.o
 CFLAGS += -I../src
-EXES = carrydb-bench carrydb-dump carrydb-repair carrydb-import
+EXES = carrydb-bench carrydb-dump carrydb-repair leveldb-import carrydb-migrate
 
-all: carrydb-bench.o carrydb-dump.o carrydb-repair.o leveldb-import.o carrydb-migrate.o
+all: ${EXES}
+
+carrydb-bench: carrydb-bench.o ${OBJS} ${UTIL_OBJS} 
 	${CXX} -o carrydb-bench carrydb-bench.o ${OBJS} ${UTIL_OBJS} ${CLIBS}
+carrydb-dump: carrydb-dump.o ${OBJS} ${UTIL_OBJS} 
 	${CXX} -o carrydb-dump carrydb-dump.o ${OBJS} ${UTIL_OBJS} ${CLIBS}
+carrydb-repair: carrydb-repair.o ${OBJS} ${UTIL_OBJS} 
 	${CXX} -o carrydb-repair carrydb-repair.o ${OBJS} ${UTIL_OBJS} ${CLIBS}
+leveldb-import: leveldb-import.o ${OBJS} ${UTIL_OBJS} 
 	${CXX} -o leveldb-import leveldb-import.o ${OBJS} ${UTIL_OBJS} ${CLIBS}
+carrydb-migrate: carrydb-migrate.o ../api/cpp/libssdb-client.a ../src/util/libutil.a
 	${CXX} -o carrydb-migrate carrydb-migrate.o ../api/cpp/libssdb-client.a ../src/util/libutil.a
 
 carrydb-migrate.o: carrydb-migrate.cpp
